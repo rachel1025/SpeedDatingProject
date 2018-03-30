@@ -1,0 +1,349 @@
+---
+title: "Speed Dating"
+author: "Cherise Woo, Shu Han Rachel Chang"
+date: "November 14, 2017"
+output:
+ rmarkdown:: github_document
+  
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+### Introduction
+
+We will analyze the Speed Dating Experiment dataset from kaggle.com, This dataset was compiled by Columbia Business School professors Ray Fisman and Sheena Iyengar for their paper Gender Differences in Mate Selection: Evidence From a Speed Dating Experiment.
+
+Data was gathered from participants in experimental speed dating events from 2002-2004. During the events, the attendees would have a four minute "first date" with every other participant of the opposite sex. At the end of their four minutes, participants were asked if they would like to see their date again. They were also asked to rate their date on six attributes: Attractiveness, Sincerity, Intelligence, Fun, Ambition, and Shared Interests.
+
+The dataset also includes questionnaire data gathered from participants at different points in the process. These fields include: demographics, dating habits, self-perception across key attributes, beliefs on what others find valuable in a mate, and lifestyle information. See the Speed Dating Data Key document below for details. It is from https://www.kaggle.com/annavictoria/speed-dating-experiment. It was accessed on November 15, 2017 by clicking on the Download button. We used libraries dplyr, tidyr, tidyverse, scales, readr, ggplot2, ggthemes, stargazer in the analysis.
+
+### Data Acquisition and Selection
+
+After downloading the csv file, I imported the dataset into R and kept only the columns needed for analysis. The file includes 8378 rows and 195 variables.
+
+### Libraries   
+```{r}
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(scales)
+library(readr)
+library(ggplot2)
+library(ggthemes)
+library(stargazer)
+Speed_Dating <- read_csv("C:/Users/linds/OneDrive/Fall 2017/STAT-612 R/Project/Speed Dating Data.csv")
+head(Speed_Dating)
+```
+### Dataset Variables (Original)  
+```{r}
+names(Speed_Dating)
+```
+
+### Unique ID-Surrogate Key         
+Variables iid and pid create a unique row. 
+```{r}
+Speed_Dating %>%
+  count(iid,pid) %>%
+  filter(n>1)
+```
+
+### Define a Subset of Variables to Use   
+
+  * **new.id**: surrogate key
+  * **wave**: different dates of the speed dating
+  * **gender**: individual's gender (Female=0,Male=1)
+  * **from**: city the indiviudal is from 
+  * **zipcode**: corresponding zipcode to the city 
+  * **income**: Median household income based on zipcode using the Census Bureau website: (http://venus.census.gov/cdrom/lookup/CMD=LIST/DB=C90STF3B/LEV=ZIP); When there is no income it means that they are either from abroad or did not enter their zip code.
+  * **order**: the order the indiviual met their partner on that night 
+  * **match**: whether the individual and partner both said yes=1 or no=0 to another date (mutual aggreement)
+  * **int_corr**: the correlation between participant's and partner's ratings of interests in Time 1
+  * **undergra**: school attended for undergraduate degree
+  * **field_cd**: field coded
+  * **field**: field of study (correspond to field_cd)
+  * **age**: individual's age 
+  * **race**: individual's race
+    + 1 =	Black/African American
+    + 2 = European/Caucasian-American
+	  + 3 = Latino/Hispanic American
+	  + 4 = Asian/Pacific Islander/Asian-American
+	  + 5 = Native American
+	  + 6 = Other
+  * **Imprace**: how important race is to you in a significant other on a scale of 1-10.
+  * **goal**: What is your primary goal in participating in this event? 
+    + 1 = Seemed like a fun night out
+    + 2 = To meet new people
+    + 3 = To get a date
+    + 4 = Looking for a serious relationship
+    + 5 = To say I did it
+    + 6 = Other
+  * **date**: how frequently does the individual go on dates 
+    + 1 = Several times a week
+	  + 2 = Twice a week
+	  + 3 = Once a week
+	  + 4 = Twice a month
+	  + 5 = Once a month
+	  + 6 = Several times a year
+	  + 7 = Almost never
+	* individual's stated preference at Time 1:
+	  + **attr1_1**: Attractive
+	  + **sinc1_1**: Sincere
+	  + **intel1_1**: Intelligent
+	  + **fun1_1**: Fun
+	  + **amb1_1**: Ambitious
+	  + **shar1_1**: Has shared interests/hobbies
+	* partner's stated preference at Time 1 - adds up to 100:
+	  + **pf_o_att**: Attractive
+	  + **pf_o_sin**: Sincere
+    + **pf_o_int**: Intelligent
+  	+ **pf_o_fun**:	Fun
+	  + **pf_o_amb**: Ambitious
+	  + **pf_o_sha**: Has shared interests/hobbies
+	* Scorecard values: rated from 1-10, the partner's ratings
+	  + **dec_o**: decision of partner the night of event
+	  + existing names (**attr_o** - **shar_o**) explained above
+	  + New values: 
+	    - **like_o**: How much do you like this person? (1=don't like at all, 10=like a lot)	
+	    - **prob_o**: How probable do you think it is that this person will say 'yes' for you? (1=not probable, 10=extremely probable)
+	    - **met_o**: Have you met this person before? (1=yes, 2=no)
+	* Scorecard Values: rated from 1-10, the individual's ratings (NOT partner)
+	  + **dec**: decision 
+	  + existing names (**attr** - **met**) explained above
+	* **imprace**: how important is it to you (on a scale of 1-10) that a person you date be of the same racial/ethnic background.
+	* **samerace**: participant and the partner were the same race. 1= yes, 0=no
+	* **race_o**: race of partner
+	* **age_o**: age of partner
+
+### Select Variables, Filter Out Waves 6:9
+```{r}
+SpeedDatingNarrow <- Speed_Dating %>% 
+  mutate(new.id = paste0(iid,pid)) %>%
+  select(new.id,wave,gender,from,zipcode,income,order,match,int_corr,undergra,field_cd,field,age,goal,date,attr1_1,sinc1_1,intel1_1,fun1_1,amb1_1,shar1_1,pf_o_att,pf_o_sin,pf_o_int,pf_o_fun,pf_o_amb,pf_o_sha,dec_o,attr_o,sinc_o,intel_o,fun_o,amb_o,shar_o,like_o,prob_o,	met_o,dec,attr,sinc,intel,fun,amb,shar,like,prob,met,race,race_o,imprace,samerace,age_o) %>%
+  filter(!wave %in% c(6:9)) 
+
+head(SpeedDatingNarrow)
+```
+We selected variables only in Time 1, which is before and during the event. These variables include the stated preference of the participant and the partner, and the scorecard values of the participant and the partner.
+
+### Summary of selected variables
+```{r}
+SpeedDatingNarrow %>%
+  select(age, income, imprace, attr1_1, sinc1_1, intel1_1, fun1_1, amb1_1, shar1_1) %>%
+  summary()
+```
+As we can tell from the summary above, the median age of participants is 26, and didn't care a lot about the race of their partners. On the other hand, attractiveness of partner is the most important attribute with the highest median among all attributes.
+
+### Counts for Waves    
+```{r}
+SpeedDatingNarrow %>%
+  count(wave)
+```
+
+### Create Weighted Variables for Individual   
+```{r}
+weighted <- SpeedDatingNarrow %>%
+  filter(!wave %in% c('6','7','8','9')) %>%
+  mutate(per_attr1_1 = attr1_1/100,
+        per_sinc1_1 = sinc1_1/100,
+        per_intel1_1 = intel1_1/100,
+        per_fun1_1 = fun1_1/100,
+        per_amb1_1 = amb1_1/100,
+        per_shar1_1 = shar1_1/100) %>%
+  mutate(WeightedScore = ((per_attr1_1*attr) +(per_sinc1_1*sinc)+(per_intel1_1*intel)+(per_fun1_1*fun)+(per_amb1_1*amb)+(per_shar1_1*shar))/10) %>%
+  select(new.id,gender,from,zipcode,income,match,dec,WeightedScore,wave,order,everything())
+
+weighted
+```
+### Create Weighted Variables for Partner   
+```{r}
+weighted <- weighted %>%
+    mutate(per_pf_o_att = pf_o_att/100,
+         per_pf_o_sin=pf_o_sin/100,
+         per_pf_o_int = pf_o_int/100,
+         per_pf_o_fun = pf_o_fun/100,
+         per_pf_o_amb=pf_o_amb/100,
+         per_pf_o_sha=pf_o_sha/100) %>%
+  mutate(PartnerWeightedScore = ((per_pf_o_att*attr_o)+(per_pf_o_sin*sinc_o)+(per_pf_o_int*intel_o)+(per_pf_o_fun*fun_o)+(per_pf_o_amb*amb_o)+(per_pf_o_sha*shar_o))/10) %>%
+  select(new.id,gender,from,zipcode,income,match,dec,WeightedScore,dec_o,PartnerWeightedScore,wave,order,everything())
+
+weighted
+```
+To calculate the impacts of the attributes of the participant's decision, we created a weighted score for the participant and the partner by weighting the stated preferences and the scorecard values.
+
+#### Individual Race
+Then, we transformed the coded race to text for the ease of future analysis.
+```{r}
+weighted$race[weighted$race==1] <- "Black/African American"
+weighted$race[weighted$race==2] <- "European/Caucasian-American"
+weighted$race[weighted$race==3] <- "Latino/Hispanic American"
+weighted$race[weighted$race==4] <- "Asian/Pacific Islander/Asian-American"
+weighted$race[weighted$race==5] <- "Native American"
+weighted$race[weighted$race==6] <- "Other"
+```
+
+#### Partner Race  
+```{r}
+weighted$race_o[weighted$race_o==1] <- "Black/African American"
+weighted$race_o[weighted$race_o==2] <- "European/Caucasian-American"
+weighted$race_o[weighted$race_o==3] <- "Latino/Hispanic American"
+weighted$race_o[weighted$race_o==4] <- "Asian/Pacific Islander/Asian-American"
+weighted$race_o[weighted$race_o==5] <- "Native American"
+weighted$race_o[weighted$race_o==6] <- "Other"
+```
+
+### Counts for Races
+```{r}
+race <- weighted %>%
+  count(race) %>%
+  na.omit(race)
+race
+```
+Most of the participants in the experiment are European/Caucasion-American, and followed by Asian/Pacific Islander/Asian-American.
+
+###Avg. Importance of Race vs. Avg. Weighted Score    
+```{r}
+weighted %>%
+  filter(gender==0) %>%
+  group_by(race,dec)%>%
+  summarise(
+    avg_imprace = mean(imprace,na.rm=TRUE),
+    avg_weighted = mean(WeightedScore,na.rm = TRUE),
+    avg_partner_weighted = mean(PartnerWeightedScore,na.rm=TRUE)
+  )
+```
+To compare the importance of race and the weighted score across different race, we emplyed dplyr to compute the differences. The chart above shows that European/Caucasian American rated their partners higher than other races, and Latino/Hispanic American and European/Caucasian American received scores slightly higher than other races. 
+
+###Are people more likely to get a match if they're the same race?
+We also wanted to see if participants are more likely to get a match if they're both the same race, the result shows that out of all matches, 646 participants who got a match are not the same race.
+```{r}
+SpeedDatingNarrow %>%
+  filter(match == 1) %>%
+  count(samerace) 
+```
+
+We also wanted to see if participants are more likely to say yes to a second date if their partner is the same race. The result shows that the partners of the 1691 participants who agreed to go on a second date are not the in the same race as the participant, which is 500 more than the partners who are in the same race as the participants.
+```{r}
+SpeedDatingNarrow %>%
+  filter(dec == 1) %>%
+  count(samerace) 
+```
+
+###Which race cares more about their partner's race?
+#####imprace > 6
+
+We also created a bar graph to see which race cares more about their partner's race. I divided the number of participants with imprace larger than 6, and divided by the total number of participants of each race. The result shows that Latino/Hispanic American is the race with the highest percentage, followed by European/Caucasian American, and Asian/Pacific Islander/Asian American has the lowest percentage. 
+```{r}
+countrace1 <- weighted %>%
+  filter( imprace > 6) %>%
+  count(race)
+
+imprace1 <- countrace1$n/race$n
+imprace1 <- data.frame(imprace1)
+
+racedata <- data.frame(race = c('Black/African American', 'European/Caucasian-American', 'Latino/Hispanic American', 'Asian/Pacific Islander/Asian-American', 'Other'))
+  
+imprace2 <- imprace1 %>%
+  cbind(racedata) %>%
+  ggplot() +
+    geom_bar(mapping = aes(x =reorder(race,imprace1), y = imprace1), stat = "identity") +
+    labs(
+      subtitle="Importance of race > 6",
+      x = "Race",
+      y = "Percentage of Races"
+    ) + 
+    coord_flip()+
+  scale_y_continuous(labels = scales::percent)
+
+imprace2
+
+```
+
+###Which wave has more matches?
+```{r}
+countwave <- SpeedDatingNarrow %>%
+  count(wave)
+
+countwave1 <- SpeedDatingNarrow %>%
+  filter(match == 1) %>%
+  count(wave)
+
+wavepercentage <- countwave1$n/countwave$n
+wavepercentage <- as.data.frame(wavepercentage)
+
+wavedata <- data.frame(wave = c(1:5,10:21)) 
+wavedata$wave <- as.character(wavedata$wave)
+
+wavepercentage %>%
+  cbind(wavedata) %>%
+  arrange(desc(wavepercentage)) %>%
+  ggplot() +
+    geom_bar(mapping = aes(x =reorder(wave,-wavepercentage), y = wavepercentage), stat = "identity") +
+    labs(x="Wave", 
+         y="Percentage of Matches")+
+  scale_y_continuous(labels = scales::percent)
+```
+The result above shows wave 1 has the most matches with over 30% match. The wave with the most participants, wave 14, has around 20% match. We believe the restrictions in different waves have caused the difference.
+
+###Are men more likely to say yes to a second date?
+We transformed the gender variable to character variable for ease of analysis. Before computing the result of the question, we computed the number of each genders in the experiment. The population of male participants is slightly larger than that of female participants.
+```{r}
+SpeedDatingNarrow$gender[SpeedDatingNarrow$gender==0] <- "Female"
+SpeedDatingNarrow$gender[SpeedDatingNarrow$gender==1] <- "Male"
+
+# number of males and females
+SpeedDatingNarrow %>%
+  count(gender)
+
+SpeedDatingNarrow$gender <- as.character(SpeedDatingNarrow$gender)
+
+SpeedDatingNarrow %>%
+  filter(dec == 1) %>%
+  ggplot() +
+  geom_bar(mapping = aes(x = gender, y = dec), stat = "identity")
+```
+The result shows that male participants are more likely to agree to go on a second date by a 200 difference.
+
+###Regression Data Variable Selection   
+```{r}
+RegressionData <- weighted %>%
+  select(gender,income,age,match,dec,WeightedScore,like,prob,met,age_o,dec_o,PartnerWeightedScore,like_o,prob_o,met_o,order,int_corr,goal,date,imprace,samerace)
+
+RegressionData
+```
+
+###Summary of Regression
+```{r}
+summary(RegressionData)
+```
+
+###Logistic Regression - Individual Selection  
+We wanted to predict the factors influencing an individual's decision to go on a second date. Since decision (dec) is a binomial variable, we used logistic regression to predict the outcome.
+```{r}
+attach(RegressionData)
+Regression.Formula <- dec~gender+income+age+WeightedScore+like+prob+met+age_o+PartnerWeightedScore+like_o+prob_o+met_o+order+int_corr+goal+date+imprace+samerace
+
+prob.DecMatch<- glm(Regression.Formula, 
+                family = binomial(link="logit"),  data=RegressionData)
+summary(prob.DecMatch)
+```
+The results above show that gender, age, Weighted Score, like, prob, prob_o, like_o, imprace, and samerace are significant variables for prediction. This means that how much the participant likes the partner and how much the participant thinks the partner like him back are important, and also the less a participant cares about race, the more likely he/she'll agree to go on a second date.
+
+###Logistic Regression - Match
+We're also interested about the factors influencing the likelihood of getting a match. We used logistic regression since match is a binomial variable.
+```{r}
+Regression.Formula.match <- match~RegressionData$gender+RegressionData$income+RegressionData$age+RegressionData$WeightedScore+RegressionData$like+RegressionData$prob+RegressionData$met+RegressionData$age_o+RegressionData$PartnerWeightedScore+RegressionData$like_o+RegressionData$prob_o+RegressionData$met_o+RegressionData$order+RegressionData$int_corr+RegressionData$goal+RegressionData$date+RegressionData$imprace+RegressionData$samerace
+```
+
+```{r}
+prob.DecMatch2<- glm(Regression.Formula.match, 
+                family = binomial(link="logit"),  data=RegressionData)
+summary(prob.DecMatch2)
+```
+The model shows hat age, weighted score, like, prob, like_o, prob_o, and imprace are significant variables in the prediction. Race has less effect in getting a match compared to agreeing to go on a second date, therefore, the most important factors that contribute to a match is how much the pair likes each other.
+
+### System Information
+
+```{r}
+sessionInfo()
+```
+
